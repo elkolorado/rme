@@ -50,6 +50,7 @@
 
 
 BEGIN_EVENT_TABLE(MapCanvas, wxGLCanvas)
+	EVT_TIMER(wxID_ANY, MapCanvas::OnTimer)
 	EVT_KEY_DOWN(MapCanvas::OnKeyDown)
 	EVT_KEY_DOWN(MapCanvas::OnKeyUp)
 
@@ -100,6 +101,8 @@ BEGIN_EVENT_TABLE(MapCanvas, wxGLCanvas)
 	EVT_MENU(MAP_POPUP_MENU_PROPERTIES, MapCanvas::OnProperties)
 	// ----
 	EVT_MENU(MAP_POPUP_MENU_BROWSE_TILE, MapCanvas::OnBrowseTile)
+
+
 END_EVENT_TABLE()
 
 bool MapCanvas::processed[] = {0};
@@ -161,6 +164,7 @@ void MapCanvas::Refresh()
 	}
 	wxGLCanvas::Refresh();
 }
+
 
 void MapCanvas::SetZoom(double value)
 {
@@ -1231,6 +1235,30 @@ void MapCanvas::OnMouseActionRelease(wxMouseEvent& event)
 	g_gui.RefreshView();
 	g_gui.UpdateMinimap();
 }
+wxTimer* driftTimer = nullptr;
+
+void MapCanvas::OnTimer(wxTimerEvent& event)
+{
+	if (event.GetId() == driftTimer->GetId()) {
+		// Drift camera continuously
+		// Accumulate mouse position differences over time
+		accumulated_dx += cursor_x - last_mmb_click_x;
+		accumulated_dy += cursor_y - last_mmb_click_y;
+
+		// Calculate scroll distance based on accumulated differences
+		int scroll_x = int(g_settings.getFloat(Config::SCROLL_SPEED) * zoom * accumulated_dx * 0.1);
+		int scroll_y = int(g_settings.getFloat(Config::SCROLL_SPEED) * zoom * accumulated_dy * 0.1);
+
+		GetMapWindow()->ScrollRelative(scroll_x, scroll_y); // Scroll the camera
+
+		// Reset accumulated differences
+		accumulated_dx = 0;
+		accumulated_dy = 0;
+
+
+		Refresh();
+	}
+}
 
 void MapCanvas::OnMouseCameraClick(wxMouseEvent& event)
 {
@@ -1248,8 +1276,16 @@ void MapCanvas::OnMouseCameraClick(wxMouseEvent& event)
 			int(-screensize_y * (1.0 - zoom) * (std::max(cursor_y, 1) / double(screensize_y)))
 		);
 		zoom = 1.0;
+
+		// Start the timer for continuous drifting
+
 		Refresh();
 	} else {
+		if (!driftTimer) {
+			driftTimer = new wxTimer(this, wxID_ANY);
+			driftTimer->Start(10); // Adjust the timer interval (in milliseconds) for the drift speed
+		}
+
 		screendragging = true;
 	}
 }
@@ -1271,6 +1307,12 @@ void MapCanvas::OnMouseCameraRelease(wxMouseEvent& event)
 			int(zoom * (2*cursor_y - screensize_y))
 		);
 		Refresh();
+	}
+
+	if (driftTimer) {
+		driftTimer->Stop();
+		delete driftTimer;
+		driftTimer = nullptr;
 	}
 }
 

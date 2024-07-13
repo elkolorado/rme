@@ -57,6 +57,7 @@ public:
 
 	// Mouse events handlers (called by the above)
 	void OnMouseActionRelease(wxMouseEvent& event);
+	void OnTimer(wxTimerEvent& event);
 	void OnMouseActionClick(wxMouseEvent& event);
 	void OnMouseCameraClick(wxMouseEvent& event);
 	void OnMouseCameraRelease(wxMouseEvent& event);
@@ -93,6 +94,8 @@ public:
 	void OnProperties(wxCommandEvent& event);
 
 	void Refresh();
+
+	void OnMouseCenterMove(wxMouseEvent& event);
 
 	void ScreenToMap(int screen_x, int screen_y, int* map_x, int* map_y);
 	void MouseToMap(int* map_x, int* map_y) { ScreenToMap(cursor_x, cursor_y, map_x, map_y); }
@@ -172,6 +175,9 @@ private:
 
 	int view_scroll_x;
 	int view_scroll_y;
+
+	int accumulated_dx = 0; // Initialize to zero
+	int accumulated_dy = 0; // Initialize to zero
 
 	uint32_t current_house_id;
 
